@@ -1,107 +1,119 @@
 # Import all the needed libraries
+import os
+
 import cv2
-from matplotlib import pyplot as plt
 import numpy as np
-import imutils
+import matplotlib.pyplot as plt
 import easyocr
 
-harcascade = "model/haarcascade_russian_plate_number.xml"
+import util
 
-min_area = 500
-count = 0
+# harcascade = "model/haarcascade_russian_plate_number.xml"
+
+# Constants
+model_cfg_path = os.path.join('.', 'model', 'cfg', 'darknet-yolov3.cfg')
+model_weights_path = os.path.join('.', 'model', 'weights', 'model.weights')
+class_names_path = os.path.join('.', 'model', 'class.names')
 
 
 class Detector:
     def __init__(self) -> None:
         pass
 
-    def createBoundingBox():
-        return
+    def imageDetection(self, imagePath):
 
-    def imageDetection(imagePath, threshold=0.5):
+        # Load class names
+        with open(class_names_path, 'r') as f:
+            class_names = [j[:-1] for j in f.readlines() if len(j) > 2]
+            f.close()
+
+        # Load model
+        net = cv2.dnn.readNetFromDarknet(model_cfg_path, model_weights_path)
+
+        # Load image
         img = cv2.imread(imagePath)
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        plt.imshow(cv2.cvtColor(gray, cv2.COLOR_BGR2RGB))
-        bfilter = cv2.bilateralFilter(gray, 11, 17, 17)  # Noise reduction
-        edged = cv2.Canny(bfilter, 30, 200)  # Edge detection
-        plt.imshow(cv2.cvtColor(edged, cv2.COLOR_BGR2RGB))
-        keypoints = cv2.findContours(
-            edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours = imutils.grab_contours(keypoints)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
-        location = None
-        for contour in contours:
-            approx = cv2.approxPolyDP(contour, 10, True)
-            if len(approx) == 4:
-                location = approx
-                break
-        print(location)
 
-        mask = np.zeros(gray.shape, np.uint8)
-        new_image = cv2.drawContours(mask, [location], 0, 255, -1)
-        new_image = cv2.bitwise_and(img, img, mask=mask)
+        H, W, _ = img.shape
 
-        plt.imshow(cv2.cvtColor(new_image, cv2.COLOR_BGR2RGB))
+        # convert image
+        blob = cv2.dnn.blobFromImage(img, 1 / 255, (416, 416), (0, 0, 0), True)
 
-        (x, y) = np.where(mask == 255)
-        (x1, y1) = (np.min(x), np.min(y))
-        (x2, y2) = (np.max(x), np.max(y))
-        cropped_image = gray[x1:x2+1, y1:y2+1]
+        # get detections
+        net.setInput(blob)
 
-        plt.imshow(cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB))
+        detections = util.get_outputs(net)
 
+        # bboxes, class_ids, confidences
+        bboxes = []
+        class_ids = []
+        scores = []
+
+        for detection in detections:
+            # [x1, x2, x3, x4, x5, x6, ..., x85]
+            bbox = detection[:4]
+
+            xc, yc, w, h = bbox
+            bbox = [int(xc * W), int(yc * H), int(w * W), int(h * H)]
+
+            bbox_confidence = detection[4]
+
+            class_id = np.argmax(detection[5:])
+            score = np.amax(detection[5:])
+
+            bboxes.append(bbox)
+            class_ids.append(class_id)
+            scores.append(score)
+
+        # apply nms
+        bboxes, class_ids, scores = util.NMS(bboxes, class_ids, scores)
+
+        # plot
         reader = easyocr.Reader(['en'])
-        result = reader.readtext(cropped_image)
-        print(result)
+        for bbox_, bbox in enumerate(bboxes):
+            xc, yc, w, h = bbox
 
-        # text = result[0][-2]
-        # font = cv2.FONT_HERSHEY_SIMPLEX
-        # res = cv2.putText(img, text=text, org=(
-        #     approx[0][0][0], approx[1][0][1]+60), fontFace=font, fontScale=1, color=(0, 255, 0), thickness=2, lineType=cv2.LINE_AA)
-        # res = cv2.rectangle(img, tuple(approx[0][0]), tuple(
-        #     approx[2][0]), (0, 255, 0), 3)
-        # plt.imshow(cv2.cvtColor(res, cv2.COLOR_BGR2RGB))
+            """
+            cv2.putText(img,
+                        class_names[class_ids[bbox_]],
+                        (int(xc - (w / 2)), int(yc + (h / 2) - 20)),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        7,
+                        (0, 255, 0),
+                        15)
+            """
 
-    def videoDetection(videoPath, threshold=0.5):
-        cap = cv2.VideoCapture(videoPath)
+            license_plate = img[int(yc - (h / 2)):int(yc + (h / 2)),
+                                int(xc - (w / 2)):int(xc + (w / 2)), :].copy()
 
-        cap.set(3, 640)  # width
-        cap.set(4, 480)  # height
+            img = cv2.rectangle(img,
+                                (int(xc - (w / 2)), int(yc - (h / 2))),
+                                (int(xc + (w / 2)), int(yc + (h / 2))),
+                                (0, 255, 0),
+                                15)
 
-        if (cap.isOpened() == False):
-            print("Error Opening File: " + videoPath)
-            return
+            license_plate_gray = cv2.cvtColor(
+                license_plate, cv2.COLOR_BGR2GRAY)
 
-        (success, image) = cap.read()
+            _, license_plate_thresh = cv2.threshold(
+                license_plate_gray, 64, 255, cv2.THRESH_BINARY_INV)
 
-        while success:
+            output = reader.readtext(license_plate)
 
-            licensePlate_cascade = cv2.CascadeClassifier(harcascade)
-            grayScale_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            for out in output:
+                text_bbox, text, text_score = out
+                if text_score > 0.4:
+                    print(text, (text_score * 100))
 
-            licensePlates = licensePlate_cascade.detectMultiScale(
-                grayScale_image, 1.1, 4)
+            plt.figure()
+            plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
 
-            for (x, y, w, h) in licensePlates:
-                area = w * h
+            plt.figure()
+            plt.imshow(cv2.cvtColor(license_plate, cv2.COLOR_BGR2RGB))
 
-                if area > min_area:
-                    cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                    cv2.putText(image, "Number Plate", (x, y-5),
-                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 0, 255), 2)
+            # plt.figure()
+            # plt.imshow(cv2.cvtColor(license_plate_gray, cv2.COLOR_BGR2RGB))
 
-                    licensePlate = image[y: y+h, x:x+w]
-                    cv2.imshow("License Plate", licensePlate)
+            # plt.figure()
+            # plt.imshow(cv2.cvtColor(license_plate_thresh, cv2.COLOR_BGR2RGB))
 
-            cv2.imshow("Result", licensePlate)
-
-            key = cv2.waitKey(1) & 0xFF
-
-            if key == ord("q"):
-                break
-
-            (success, image) = cap.read()
-
-        cv2.destroyAllWindows()
-
-        return
+        plt.show()
