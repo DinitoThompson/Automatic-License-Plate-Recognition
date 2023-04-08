@@ -20,7 +20,7 @@ class Detector:
     def __init__(self) -> None:
         pass
 
-    def imageDetection(self, imagePath):
+    def LP_Image_Detection(self, imagePath):
 
         # Load class names
         with open(class_names_path, 'r') as f:
@@ -89,20 +89,30 @@ class Detector:
                                 (int(xc - (w / 2)), int(yc - (h / 2))),
                                 (int(xc + (w / 2)), int(yc + (h / 2))),
                                 (0, 255, 0),
-                                15)
+                                thickness=5)
 
             license_plate_gray = cv2.cvtColor(
                 license_plate, cv2.COLOR_BGR2GRAY)
 
-            _, license_plate_thresh = cv2.threshold(
+            _, license_plate_edged = cv2.threshold(
                 license_plate_gray, 64, 255, cv2.THRESH_BINARY_INV)
 
-            output = reader.readtext(license_plate)
+            # output = reader.readtext(license_plate_edged)
 
-            for out in output:
-                text_bbox, text, text_score = out
-                if text_score > 0.4:
-                    print(text, (text_score * 100))
+            # print(output)
+
+            # for out in output:
+            #     text_bbox, text, text_score = out
+            #     if text_score > 0.4:
+            #         print("License Plate: ", text)
+            #         print("Confidence Value: %", (text_score * 100))
+
+            results = self.LP_Reader_Thresh(
+                license_plate, license_plate_gray, license_plate_edged)
+
+            print("License Plate: ", results[1])
+            print("Confidence Value: %", (results[0] * 100))
+            print("Image Used: ", results[2])
 
             plt.figure()
             plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
@@ -110,10 +120,47 @@ class Detector:
             plt.figure()
             plt.imshow(cv2.cvtColor(license_plate, cv2.COLOR_BGR2RGB))
 
-            # plt.figure()
-            # plt.imshow(cv2.cvtColor(license_plate_gray, cv2.COLOR_BGR2RGB))
+            plt.figure()
+            plt.imshow(cv2.cvtColor(license_plate_gray, cv2.COLOR_BGR2RGB))
 
-            # plt.figure()
-            # plt.imshow(cv2.cvtColor(license_plate_thresh, cv2.COLOR_BGR2RGB))
+            plt.figure()
+            plt.imshow(cv2.cvtColor(license_plate_edged, cv2.COLOR_BGR2RGB))
 
         plt.show()
+
+    def LP_Video_Detection(self, videoPath):
+        return
+
+    def LP_Reader_Thresh(self, plate, gray, thresh):
+
+        reader = easyocr.Reader(['en'])
+
+        plate_output = reader.readtext(plate)
+        gray_output = reader.readtext(gray)
+        thresh_output = reader.readtext(thresh)
+
+        highest_score = 0.0
+        text = ""
+        lp_used = ""
+
+        for out in plate_output:
+            text_bbox, text, text_score = out
+            highest_score = text_score
+            text = text
+            lp_used = "License Plate (Colored)"
+
+        for out in gray_output:
+            text_bbox, text, text_score = out
+            if text_score > highest_score:
+                highest_score = text_score
+                text = text
+                lp_used = "License Plate (Gray)"
+
+        for out in thresh_output:
+            text_bbox, text, text_score = out
+            if text_score > highest_score:
+                highest_score = text_score
+                text = text
+                lp_used = "License Plate (Edged)"
+
+        return highest_score, text, lp_used

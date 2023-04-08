@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 
 
-def NMS(boxes, class_ids, confidences, overlapThresh = 0.5):
+def NMS(boxes, class_ids, confidences, overlapThresh=0.5):
 
     boxes = np.asarray(boxes)
     class_ids = np.asarray(class_ids)
@@ -14,8 +14,10 @@ def NMS(boxes, class_ids, confidences, overlapThresh = 0.5):
 
     x1 = boxes[:, 0] - (boxes[:, 2] / 2)  # x coordinate of the top-left corner
     y1 = boxes[:, 1] - (boxes[:, 3] / 2)  # y coordinate of the top-left corner
-    x2 = boxes[:, 0] + (boxes[:, 2] / 2)  # x coordinate of the bottom-right corner
-    y2 = boxes[:, 1] + (boxes[:, 3] / 2)  # y coordinate of the bottom-right corner
+    # x coordinate of the bottom-right corner
+    x2 = boxes[:, 0] + (boxes[:, 2] / 2)
+    # y coordinate of the bottom-right corner
+    y2 = boxes[:, 1] + (boxes[:, 3] / 2)
 
     areas = (x2 - x1 + 1) * (y2 - y1 + 1)
 
@@ -24,10 +26,14 @@ def NMS(boxes, class_ids, confidences, overlapThresh = 0.5):
         # Create temporary indices
         temp_indices = indices[indices != i]
         # Find out the coordinates of the intersection box
-        xx1 = np.maximum(box[0] - (box[2] / 2), boxes[temp_indices, 0] - (boxes[temp_indices, 2] / 2))
-        yy1 = np.maximum(box[1] - (box[3] / 2), boxes[temp_indices, 1] - (boxes[temp_indices, 3] / 2))
-        xx2 = np.minimum(box[0] + (box[2] / 2), boxes[temp_indices, 0] + (boxes[temp_indices, 2] / 2))
-        yy2 = np.minimum(box[1] + (box[3] / 2), boxes[temp_indices, 1] + (boxes[temp_indices, 3] / 2))
+        xx1 = np.maximum(
+            box[0] - (box[2] / 2), boxes[temp_indices, 0] - (boxes[temp_indices, 2] / 2))
+        yy1 = np.maximum(
+            box[1] - (box[3] / 2), boxes[temp_indices, 1] - (boxes[temp_indices, 3] / 2))
+        xx2 = np.minimum(
+            box[0] + (box[2] / 2), boxes[temp_indices, 0] + (boxes[temp_indices, 2] / 2))
+        yy2 = np.minimum(
+            box[1] + (box[3] / 2), boxes[temp_indices, 1] + (boxes[temp_indices, 3] / 2))
 
         w = np.maximum(0, xx2 - xx1 + 1)
         h = np.maximum(0, yy2 - yy1 + 1)
