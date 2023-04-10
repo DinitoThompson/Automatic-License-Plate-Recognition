@@ -5,15 +5,15 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 import easyocr
+from Utility.util import BoxUtil
 
-import util
+boxUtil = BoxUtil()
 
-harcascade = "./model/haarcascade_russian_plate_number.xml"
+harcascade = "./Model/haarcascade_russian_plate_number.xml"
 
 # Constants
-model_cfg_path = os.path.join('.', 'model', 'cfg', 'darknet-yolov3.cfg')
-model_weights_path = os.path.join('.', 'model', 'weights', 'model.weights')
-class_names_path = os.path.join('.', 'model', 'class.names')
+model_cfg_path = 'Utility\Model\cfg\darknet-yolov3.cfg'
+model_weights_path = 'Utility\Model\weights\model.weights'
 
 
 class Detector:
@@ -21,33 +21,41 @@ class Detector:
         pass
 
     def LP_Image_Detection(self, imagePath):
-
-        # Load class names
-        with open(class_names_path, 'r') as f:
-            class_names = [j[:-1] for j in f.readlines() if len(j) > 2]
-            f.close()
-
         # Load model
-        net = cv2.dnn.readNetFromDarknet(model_cfg_path, model_weights_path)
+        yoloModel = cv2.dnn.readNetFromDarknet(
+            model_cfg_path, model_weights_path)
 
         # Load image
-        img = cv2.imread(imagePath)
+        image = cv2.imread(imagePath)
 
-        H, W, _ = img.shape
+        H, W, _ = image.shape
 
-        # convert image
-        blob = cv2.dnn.blobFromImage(img, 1 / 255, (416, 416), (0, 0, 0), True)
+        # Convert image to 4D Blob
+        blob = cv2.dnn.blobFromImage(
+            image, 1 / 255, (416, 416), (0, 0, 0), True)
 
-        # get detections
-        net.setInput(blob)
+        # Uncomment the code below to the see the rsults of the blob
+        # It converts the imagine into a 4D object, so to see it, we then convert it to a 2D object
+        """
+        image = np.reshape(blob, (blob.shape[2], blob.shape[3], blob.shape[1]))
 
-        detections = util.get_outputs(net)
+        # Display the image using cv2.imshow
+        cv2.imshow("Blob", image)
+        cv2.waitKey(0)
+        """
+
+        # Get license plate detections from blob
+        yoloModel.setInput(blob)
+
+        # Extract the detections
+        detections = boxUtil.get_outputs(yoloModel)
 
         # bboxes, class_ids, confidences
         bboxes = []
         class_ids = []
         scores = []
 
+        # Goes through and extract the detection with the score
         for detection in detections:
             # [x1, x2, x3, x4, x5, x6, ..., x85]
             bbox = detection[:4]
@@ -64,48 +72,35 @@ class Detector:
             class_ids.append(class_id)
             scores.append(score)
 
-        # apply nms
-        bboxes, class_ids, scores = util.NMS(bboxes, class_ids, scores)
+        # Apply nms
+        bboxes, class_ids, scores = boxUtil.NMS(bboxes, class_ids, scores)
 
-        # plot
-        reader = easyocr.Reader(['en'])
+        # Plot region of interest
         for bbox_, bbox in enumerate(bboxes):
             xc, yc, w, h = bbox
 
-            """
-            cv2.putText(img,
-                        class_names[class_ids[bbox_]],
-                        (int(xc - (w / 2)), int(yc + (h / 2) - 20)),
+            cv2.putText(image,
+                        "License Plate",
+                        (int(xc - (w / 2)) + 30, int(yc + (h / 2) + 55)),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        7,
+                        1,
                         (0, 255, 0),
-                        15)
-            """
+                        4)
 
-            license_plate = img[int(yc - (h / 2)):int(yc + (h / 2)),
-                                int(xc - (w / 2)):int(xc + (w / 2)), :].copy()
+            license_plate = image[int(yc - (h / 2)):int(yc + (h / 2)),
+                                  int(xc - (w / 2)):int(xc + (w / 2)), :].copy()
 
-            img = cv2.rectangle(img,
-                                (int(xc - (w / 2)), int(yc - (h / 2))),
-                                (int(xc + (w / 2)), int(yc + (h / 2))),
-                                (0, 255, 0),
-                                thickness=5)
+            image = cv2.rectangle(image,
+                                  (int(xc - (w / 2)), int(yc - (h / 2))),
+                                  (int(xc + (w / 2)), int(yc + (h / 2))),
+                                  (0, 255, 0),
+                                  thickness=5)
 
             license_plate_gray = cv2.cvtColor(
                 license_plate, cv2.COLOR_BGR2GRAY)
 
             _, license_plate_edged = cv2.threshold(
                 license_plate_gray, 64, 255, cv2.THRESH_BINARY_INV)
-
-            # output = reader.readtext(license_plate_edged)
-
-            # print(output)
-
-            # for out in output:
-            #     text_bbox, text, text_score = out
-            #     if text_score > 0.4:
-            #         print("License Plate: ", text)
-            #         print("Confidence Value: %", (text_score * 100))
 
             results = self.LP_Reader_Thresh(
                 license_plate, license_plate_gray, license_plate_edged)
@@ -115,7 +110,7 @@ class Detector:
             print("Image Used: ", results[2])
 
             plt.figure()
-            plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
             plt.figure()
             plt.imshow(cv2.cvtColor(license_plate, cv2.COLOR_BGR2RGB))
@@ -152,7 +147,7 @@ class Detector:
             # get detections
             net.setInput(blob)
 
-            detections = util.get_outputs(net)
+            detections = boxUtil.get_outputs(net)
 
             # bboxes, class_ids, confidences
             bboxes = []
@@ -176,7 +171,7 @@ class Detector:
                 scores.append(score)
 
             # apply nms
-            bboxes, class_ids, scores = util.NMS(bboxes, class_ids, scores)
+            bboxes, class_ids, scores = boxUtil.NMS(bboxes, class_ids, scores)
 
             for bbox_, bbox in enumerate(bboxes):
                 xc, yc, w, h = bbox
