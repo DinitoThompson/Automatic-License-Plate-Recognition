@@ -1,5 +1,6 @@
 # Import files
 from Detector import *
+from Blacklist import *
 
 # Read different file type
 videoPath = ""
@@ -13,3 +14,8 @@ detector = Detector()
 detector.imageDetection(imagePath)
 
 # Read video
+
+#if __name__ == '__main__':
+# 
+#    Blacklist.addToBlacklist("5")
+
