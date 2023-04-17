@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import easyocr
 from Utility.util import BoxUtil
 from datetime import datetime
+from black_list import *
+
 
 boxUtil = BoxUtil()
 
@@ -103,6 +105,8 @@ class Detector:
 
         resized_license_plate = cv2.resize(
             license_plate, None, fx=3.0, fy=3.0)
+        
+        Blacklist.autoCheckBlacklist(license_plate_text)
 
         return cv2.imwrite(path_name, resized_license_plate)
 

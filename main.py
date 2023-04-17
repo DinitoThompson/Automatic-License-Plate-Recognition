@@ -1,6 +1,6 @@
 # Import files
 from Utility.detector import Detector
-from Blacklist import *
+
 
 # Sam Semegment Anything Model
 # Microsoft Azure - Cognative Services
@@ -17,6 +17,4 @@ detector.LP_Image_Detection(imagePath)
 
 # Read video
 
-# if __name__ == '__main__':
-#
-#    Blacklist.addToBlacklist("5")
+
