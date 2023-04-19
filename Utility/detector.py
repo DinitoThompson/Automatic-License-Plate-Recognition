@@ -1,6 +1,6 @@
 # Import all the needed libraries
 import os
-
+import imutils
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,18 +13,22 @@ boxUtil = BoxUtil()
 # Constants
 model_cfg_path = 'Utility\Model\cfg\darknet-yolov3.cfg'
 model_weights_path = 'Utility\Model\weights\model.weights'
+harcascade = "Utility\Model\Haarcascade\haarcascade_russian_plate_number.xml"
 save_path = "Data/Saved_Plates"
+feed_save_path = "Data/Saved_Plates_Feed"
+reader = easyocr.Reader(['en'])
+
+# Load model
+yoloModel = cv2.dnn.readNetFromDarknet(model_cfg_path, model_weights_path)
 
 
 class Detector:
     def __init__(self) -> None:
         pass
 
-    def LP_Image_Detection(self, imagePath):
-        # Load model
-        yoloModel = cv2.dnn.readNetFromDarknet(
-            model_cfg_path, model_weights_path)
+# -----------------------IMAGE DETECTION-----------------------#
 
+    def LP_Image_Detection(self, imagePath):
         # Load image
         image = cv2.imread(imagePath)
 
@@ -58,13 +62,15 @@ class Detector:
             results = self.LP_Filter(
                 license_plate, license_plate_gray, license_plate_edged)
 
-            if (self.LP_Saver(license_plate, results[1])):
-                print("License Plate Saved.")
+            # Saves detected license plate
+            # if (self.LP_Saver(license_plate, results[1])):
+            #     print("License Plate Saved.")
 
             self.LP_Filter_Status(results)
 
-            # self.LP_Results(image, license_plate,
-            #                 license_plate_gray, license_plate_edged)
+            # Displays detected results
+            self.LP_Results(image, license_plate,
+                            license_plate_gray, license_plate_edged)
 
         plt.show()
 
@@ -149,13 +155,15 @@ class Detector:
 
         return boxUtil.NMS(bboxes, class_ids, scores)
 
+    def LP_Reader(self, plate):
+        result = reader.readtext(plate)
+        return result
+
     def LP_Filter(self, plate, gray, thresh):
 
-        reader = easyocr.Reader(['en'])
-
-        plate_output = reader.readtext(plate)
-        gray_output = reader.readtext(gray)
-        thresh_output = reader.readtext(thresh)
+        plate_output = self.LP_Reader(plate)
+        gray_output = self.LP_Reader(gray)
+        thresh_output = self.LP_Reader(thresh)
 
         highest_score = 0.0
         text = ""
@@ -182,3 +190,79 @@ class Detector:
                 lp_used = "License Plate (Edged)"
 
         return highest_score, text, lp_used
+
+# -----------------------LIVE FEED-----------------------#
+
+    def LP_Live_Feed(self, webcamPath):
+        cap = cv2.VideoCapture(webcamPath)
+
+        if (cap.isOpened() == False):
+            print("Error Accessing Webcam: " + webcamPath)
+            return
+
+        while True:
+            success, frame = cap.read()
+            if success:
+                cv2.imshow("Webcam Feed", frame)
+                if cv2.waitKey(5) & 0xFF == ord('q'):
+                    break
+        print(f"[INFO] Live Feed Closed . . . ")
+        # closing all windows
+        cv2.destroyAllWindows()
+        return
+
+# -----------------------RESERVED PARKING LOT FEED-----------------------#
+
+    def LP_Parking_Lot_Feed(self, videoPath):
+
+        plate_cascade = cv2.CascadeClassifier(harcascade)
+        cap = cv2.VideoCapture(videoPath)
+
+        # cap.set(3, 340)  # width
+        # cap.set(4, 280)  # height
+
+        min_area = 400
+        count = 0
+
+        if (cap.isOpened() == False):
+            print("Error Accessing Video: " + videoPath)
+            return
+
+        while True:
+            success, frame = cap.read()
+            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            plates = plate_cascade.detectMultiScale(frame_gray, 2.5, 4)
+
+            for (x, y, w, h) in plates:
+                area = w * h
+
+                if area > min_area:
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                    cv2.putText(frame, "Plate Detected", (x, y-5),
+                                cv2.FONT_HERSHEY_COMPLEX_SMALL, 1, (255, 0, 255), 2)
+
+                    img_roi = frame[y: y+h, x:x+w]
+
+                    cv2.imshow(f"License Plate", img_roi)
+
+            cv2.imshow("Result", frame)
+
+            # TODO: Make this more efficent
+            if cv2.waitKey(1) & 0xFF == ord('s'):
+                file_name = datetime.now().strftime("%m-%d-%Y_%H-%M-%S") + ".png"
+                path_name = f"{feed_save_path}/{file_name}"
+                cv2.imwrite(path_name, img_roi)
+                cv2.rectangle(frame, (0, 200), (640, 300),
+                              (0, 255, 0), cv2.FILLED)
+                cv2.putText(frame, "Plate Saved", (150, 265),
+                            cv2.FONT_HERSHEY_COMPLEX_SMALL, 2, (0, 0, 255), 2)
+                cv2.imshow("Results", frame)
+                cv2.waitKey(500)
+                count += 1
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        print(f"[INFO] Live Feed Closed . . . ")
+        # closing all windows
+        cv2.destroyAllWindows()
+        return

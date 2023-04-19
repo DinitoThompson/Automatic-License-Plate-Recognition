@@ -6,10 +6,17 @@ from Utility.detector import Detector
 
 # Read different file type
 imagePath = "./Data/Images/Vehicle (1).png"
-# webcamPath = 0
+videoPath = "./Data/Videos/Video (3).mp4"
+webcamPath = 0
 
 # Initialize Detector Class
 detector = Detector()
 
-# Read image
-detector.LP_Image_Detection(imagePath)
+# Read Image
+# detector.LP_Image_Detection(imagePath)
+
+# Webcam Feed
+# detector.LP_Live_Feed(webcamPath)
+
+# Parking Lot Feed
+# detector.LP_Parking_Lot_Feed(videoPath)
