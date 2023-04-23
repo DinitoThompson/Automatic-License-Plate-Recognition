@@ -3,6 +3,8 @@ from Utility.detector import Detector
 
 # Sam Semegment Anything Model
 # Microsoft Azure - Cognative Services
+# Sam Semegment Anything Model
+# Microsoft Azure - Cognative Services
 
 # Read different file type
 imagePath = "./Data/Images/Vehicle (1).png"

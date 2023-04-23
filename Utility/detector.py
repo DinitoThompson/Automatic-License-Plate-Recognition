@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import easyocr
 from Utility.util import BoxUtil
 from datetime import datetime
+from datetime import datetime
 
 boxUtil = BoxUtil()
 
@@ -20,6 +21,7 @@ reader = easyocr.Reader(['en'])
 
 # Load model
 yoloModel = cv2.dnn.readNetFromDarknet(model_cfg_path, model_weights_path)
+save_path = "Data/Saved_Plates"
 
 
 class Detector:
@@ -32,6 +34,7 @@ class Detector:
         # Load image
         image = cv2.imread(imagePath)
 
+        # Get Height & Width
         # Get Height & Width
         H, W, _ = image.shape
 
@@ -46,6 +49,7 @@ class Detector:
         detections = boxUtil.get_outputs(yoloModel)
 
         # Apply nms
+        bboxes, class_ids, scores = self.LP_Plate_Detection(W, H, detections)
         bboxes, class_ids, scores = self.LP_Plate_Detection(W, H, detections)
 
         # Plot region of interest
@@ -86,10 +90,24 @@ class Detector:
                     1,
                     (0, 255, 0),
                     4)
+        cv2.putText(image,
+                    "License Plate",
+                    (int(xc - (w / 2)) + 30, int(yc + (h / 2) + 55)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    1,
+                    (0, 255, 0),
+                    4)
 
         license_plate = image[int(yc - (h / 2)):int(yc + (h / 2)),
                               int(xc - (w / 2)):int(xc + (w / 2)), :].copy()
+        license_plate = image[int(yc - (h / 2)):int(yc + (h / 2)),
+                              int(xc - (w / 2)):int(xc + (w / 2)), :].copy()
 
+        image = cv2.rectangle(image,
+                              (int(xc - (w / 2)), int(yc - (h / 2))),
+                              (int(xc + (w / 2)), int(yc + (h / 2))),
+                              (0, 255, 0),
+                              thickness=5)
         image = cv2.rectangle(image,
                               (int(xc - (w / 2)), int(yc - (h / 2))),
                               (int(xc + (w / 2)), int(yc + (h / 2))),
@@ -106,11 +124,29 @@ class Detector:
             license_plate_text.replace(" ", "") + ".png"
 
         path_name = f"{save_path}/{file_name}"
+        return license_plate, image
 
+    def LP_Saver(self, license_plate, license_plate_text):
+        # 1-1-2000_01:00:00_PGJA34
+        # Date(Month-Day-Year)_Time(Hour-Minute-Second)_License Plate
+
+        file_name = datetime.now().strftime("%m-%d-%Y_%H-%M-%S") + "_" + \
+            license_plate_text.replace(" ", "") + ".png"
+
+        path_name = f"{save_path}/{file_name}"
+
+        resized_license_plate = cv2.resize(
+            license_plate, None, fx=3.0, fy=3.0)
         resized_license_plate = cv2.resize(
             license_plate, None, fx=3.0, fy=3.0)
 
         return cv2.imwrite(path_name, resized_license_plate)
+        return cv2.imwrite(path_name, resized_license_plate)
+
+    def LP_Filter_Status(self, results):
+        print("License Plate: ", results[1])
+        print("Confidence Value: %", round((results[0] * 100), 2))
+        print("Image Used: ", results[2])
 
     def LP_Filter_Status(self, results):
         print("License Plate: ", results[1])
@@ -121,14 +157,30 @@ class Detector:
         plt.figure()
         plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
+    def LP_Results(self, image, license_plate, license_plate_gray, license_plate_edged):
+        plt.figure()
+        plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+
+        plt.figure()
+        plt.imshow(cv2.cvtColor(license_plate, cv2.COLOR_BGR2RGB))
         plt.figure()
         plt.imshow(cv2.cvtColor(license_plate, cv2.COLOR_BGR2RGB))
 
         plt.figure()
         plt.imshow(cv2.cvtColor(license_plate_gray, cv2.COLOR_BGR2RGB))
+        plt.figure()
+        plt.imshow(cv2.cvtColor(license_plate_gray, cv2.COLOR_BGR2RGB))
 
         plt.figure()
         plt.imshow(cv2.cvtColor(license_plate_edged, cv2.COLOR_BGR2RGB))
+        plt.figure()
+        plt.imshow(cv2.cvtColor(license_plate_edged, cv2.COLOR_BGR2RGB))
+
+    def LP_Plate_Detection(self, W, H, detections):
+        # bboxes, class_ids, confidences
+        bboxes = []
+        class_ids = []
+        scores = []
 
     def LP_Plate_Detection(self, W, H, detections):
         # bboxes, class_ids, confidences
@@ -140,19 +192,32 @@ class Detector:
         for detection in detections:
             # [x1, x2, x3, x4, x5, x6, ..., x85]
             bbox = detection[:4]
+        # Goes through and extract the detection with the score
+        for detection in detections:
+            # [x1, x2, x3, x4, x5, x6, ..., x85]
+            bbox = detection[:4]
 
+            xc, yc, w, h = bbox
+            bbox = [int(xc * W), int(yc * H), int(w * W), int(h * H)]
             xc, yc, w, h = bbox
             bbox = [int(xc * W), int(yc * H), int(w * W), int(h * H)]
 
             bbox_confidence = detection[4]
+            bbox_confidence = detection[4]
 
+            class_id = np.argmax(detection[5:])
+            score = np.amax(detection[5:])
             class_id = np.argmax(detection[5:])
             score = np.amax(detection[5:])
 
             bboxes.append(bbox)
             class_ids.append(class_id)
             scores.append(score)
+            bboxes.append(bbox)
+            class_ids.append(class_id)
+            scores.append(score)
 
+        return boxUtil.NMS(bboxes, class_ids, scores)
         return boxUtil.NMS(bboxes, class_ids, scores)
 
     def LP_Reader(self, plate):
