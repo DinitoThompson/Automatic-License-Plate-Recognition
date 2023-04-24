@@ -1,6 +1,7 @@
 # Import files
 from Utility.detector import Detector
 
+
 # Sam Semegment Anything Model
 # Microsoft Azure - Cognative Services
 # Sam Semegment Anything Model
