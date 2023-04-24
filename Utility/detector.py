@@ -108,25 +108,16 @@ class Detector:
         file_name = datetime.now().strftime("%m-%d-%Y_%H-%M-%S") + "_" + \
             license_plate_text.replace(" ", "") + ".png"
 
-        path_name = f"{save_path}/{file_name}"
-        return license_plate, image
-
-    def LP_Saver(self, license_plate, license_plate_text):
-        # 1-1-2000_01:00:00_PGJA34
-        # Date(Month-Day-Year)_Time(Hour-Minute-Second)_License Plate
-
-        file_name = datetime.now().strftime("%m-%d-%Y_%H-%M-%S") + "_" + \
-            license_plate_text.replace(" ", "") + ".png"
-
         save_name = f"{save_path}/{file_name}"
         blacklist = f"{blacklist_path}/{file_name}"
 
         resized_license_plate = cv2.resize(
             license_plate, None, fx=3.0, fy=3.0)
 
-        Blacklist.autoCheckBlacklist(license_plate_text)
-
-        return cv2.imwrite(path_name, resized_license_plate)
+        if (Blacklist.autoCheckBlacklist(license_plate_text)):
+            return cv2.imwrite(save_name, resized_license_plate)
+        else:
+            return cv2.imwrite(blacklist, resized_license_plate)
 
     def LP_Filter_Status(self, results):
         print("License Plate: ", results[1])
