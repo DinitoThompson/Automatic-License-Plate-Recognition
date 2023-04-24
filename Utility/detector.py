@@ -16,6 +16,7 @@ boxUtil = BoxUtil()
 model_cfg_path = 'Utility\Model\cfg\darknet-yolov3.cfg'
 model_weights_path = 'Utility\Model\weights\model.weights'
 save_path = "Data/Saved_Plates"
+blacklist_path = "Data/Blacklist_Plates"
 
 
 class Detector:
@@ -101,14 +102,16 @@ class Detector:
         file_name = datetime.now().strftime("%m-%d-%Y_%H-%M-%S") + "_" + \
             license_plate_text.replace(" ", "") + ".png"
 
-        path_name = f"{save_path}/{file_name}"
+        save_name = f"{save_path}/{file_name}"
+        blacklist = f"{blacklist_path}/{file_name}"
 
         resized_license_plate = cv2.resize(
             license_plate, None, fx=3.0, fy=3.0)
-        
-        Blacklist.autoCheckBlacklist(license_plate_text)
 
-        return cv2.imwrite(path_name, resized_license_plate)
+        if (Blacklist.autoCheckBlacklist(license_plate_text)):
+            cv2.imwrite(save_name, resized_license_plate)
+        else:
+            cv2.imwrite(blacklist, resized_license_plate)
 
     def LP_Filter_Status(self, results):
         print("License Plate: ", results[1])
