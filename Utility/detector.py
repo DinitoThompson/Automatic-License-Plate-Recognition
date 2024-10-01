@@ -166,32 +166,27 @@ class Detector:
 
         reader = easyocr.Reader(['en'])
 
-        plate_output = reader.readtext(plate)
-        gray_output = reader.readtext(gray)
-        thresh_output = reader.readtext(thresh)
+        outputArray = np.array([
+            normalize_reader_output(reader.readtext(
+                plate), "License Plate (Colored)"),
+            normalize_reader_output(reader.readtext(
+                gray), "License Plate (Gray)"),
+            normalize_reader_output(reader.readtext(
+                thresh), "License Plate (Edged)")
+        ], dtype=object)
 
-        highest_score = 0.0
-        text = ""
-        lp_used = ""
+        maxScoreIndex = np.argmax(outputArray[:, 2])
 
-        for out in plate_output:
-            text_bbox, text, text_score = out
-            highest_score = text_score
-            text = text
-            lp_used = "License Plate (Colored)"
+        [_, text, score, lp_used] = outputArray[maxScoreIndex]
 
-        for out in gray_output:
-            text_bbox, text, text_score = out
-            if text_score > highest_score:
-                highest_score = text_score
-                text = text
-                lp_used = "License Plate (Gray)"
+        return score, text, lp_used
 
-        for out in thresh_output:
-            text_bbox, text, text_score = out
-            if text_score > highest_score:
-                highest_score = text_score
-                text = text
-                lp_used = "License Plate (Edged)"
-
-        return highest_score, text, lp_used
+def normalize_reader_output(output, label):
+    # replace empty outputs with template
+    if (len(output) == 0):
+        normalized = [[[0, 0], [0, 0], [0, 0], [0, 0]], "", 0, label]
+    else:
+        # transform output tuple to list
+        normalized = list(output[0])
+        normalized.append(label)
+    return normalized
